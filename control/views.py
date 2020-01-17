@@ -4,26 +4,15 @@ from django.urls import reverse
 
 from django.views.decorators import gzip
 
-import cv2, threading, time
+#import cv2
+import threading, time
 import serial, serial.tools.list_ports
 from pyfirmata import ArduinoMega, util
 from time import sleep
 from threading import Timer
-import re
-
-#TODO Video streaming _not_ with Django, use a cdn or red5 or....something. Django not made for video.
-#TODO re-write the whole thing in NodeJS??...loose support for Firmata
-#TODO Apache-red5-ffmpeg-django stack. I know, its a lot, but its what we need to do.
-
-streamLocation = 'http://root:pass@192.168.1.150/mjpg/video.mjpg'
-#streamLocation = "/dev/video0"
-#videoLocation = '/home/rosie/Videos/Large.mp4'
+import RPi.GPIO as GPIO
 
 count = 0
-streamCount = 0
-
-activeStream = False
-videoQuality = 30
 
 portList = [port.device for port in serial.tools.list_ports.comports()]
 print("port "+portList[0])
@@ -153,76 +142,12 @@ def command(request):
     return HttpResponse(response)
 
 
-"""
-def comconnect():
-    global havePort, ser
-    havePort = 0;
-    portList = [port.device for port in serial.tools.list_ports.comports()]
-    print(portList)
-    if (portList):
-        print("have port" + portList[0])
-        havePort = 1;
-        ser = serial.Serial(portList[0], 9600, timeout=1)
-"""
-
-
-class VideoCamera(object):
-    def __init__(self):
-        self.video = cv2.VideoCapture(streamLocation)
-        (self.grabbed, self.frame) = self.video.read()
-        threading.Thread(target=self.update, args=()).start()
-
-    def __del__(self):
-        self.video.release()
-
-    def get_frame(self,quality):
-        image = self.frame
-        ret, jpeg = cv2.imencode('.jpg', image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
-        return jpeg.tobytes()
-
-    def update(self):
-        while True:
-            (self.grabbed, self.frame) = self.video.read()
-
-cam = VideoCamera()
-
-
-def gen(camera, quality):
-    global streamCount
-    streamCount = streamCount+1
-    print('startStream+++++++++++++++++++++++++++++++++++++++++'+str(streamCount))
-    global videoQuality
-    videoQuality = quality
-    while activeStream:
-        frame = cam.get_frame(quality)
-        yield(b'--frame\r\n'
-              b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-    streamCount = streamCount-1
-    print('stopStream------------------------------------------'+str(streamCount))
-
-@gzip.gzip_page
-def stream(request):
-    global activeStream
-    activeStream = True
-    try:
-        return StreamingHttpResponse(gen(VideoCamera(),30), content_type="multipart/x-mixed-replace;boundary=frame")
-    except:  # This is bad! replace it with proper handling
-        pass
-
-def custom(request, quality):
-    global activeStream
-    activeStream = True
-    try:
-        return StreamingHttpResponse(gen(VideoCamera(),quality), content_type="multipart/x-mixed-replace;boundary=frame")
-    except:  # This is bad! replace it with proper handling
-        pass
-
 def index(request):
-    global activeStream
-    activeStream = False
+    #global activeStream
+    #activeStream = False
     return render(request, 'control/index.html', {'quality': 30})
 
 def indexQ(request, quality):
-    global activeStream
-    activeStream = False
+    #global activeStream
+    #activeStream = False
     return render(request, 'control/index.html', {'quality': quality})
