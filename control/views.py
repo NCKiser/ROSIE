@@ -18,6 +18,7 @@ portList = [port.device for port in serial.tools.list_ports.comports()]
 print("port "+portList[0])
 
 
+
 def stopmotors():
     global activeStream
     print('stopping motors')
