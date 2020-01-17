@@ -1,0 +1,59 @@
+{% load static %}
+<link rel="shortcut icon" href="{%  static 'favicon/favicon.ico' %}">
+
+<head>
+<title> Webserver Review Page </title>
+</head>
+<body>
+<table style="height:100%; width:100%; position:absolute; top:0; bottom:0; left:0; right:0;" border="1px">
+	<tr style="heigh:100%">
+		<td style="width:100%;">
+			<div style="height:100%; width:100%">
+				<iframe style="height:100%; width:100%" name="videoplayer">
+				</iframe>
+			</div>
+		</td>
+		<td>
+			<table style="height:100%; width:100%;" border="1px">
+				<tr style="height:100%;">
+					<td style="width:100%;padding-top:20px;" valign="top" name="listview">
+						<ul>
+							{% for image in images %}
+								<li>
+									<a href="{%  static image %}" target="videoplayer">
+										{{image}}
+									</a>
+								</li>
+							{% endfor %}
+						</ul>
+					</td>
+				</tr>
+				<tr style="height:15vh;">
+					<td>
+						<table style="height:100%; width:60vh;" border="1px">
+							<tr>
+								<td style="width:15vh;">
+									Flag Current
+								</td>
+								<td style="width:15vh;">
+									Delete Current
+								</td>
+								<td style="width:15vh;">
+									<a href="/">
+										Root Folder
+									</a>
+								</td>
+								<td style="width:15vh;">
+									<a href="/control/">
+										Control Robot
+									</a>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+</table>
+</body>

@@ -1,0 +1,364 @@
+{% load static %}
+<link rel="shortcut icon" href="{%  static 'favicon/favicon.ico' %}">
+
+<head>
+<title> Webserver Control Page </title>
+</head>
+<body>
+<table style="height:100%; width:100%; position:absolute; top:0; bottom:0; left:0; right:0;" border="1px">
+				<tr style="height:100%;">
+					<td style="width:75vw;" align="center">
+<!--						<img src="/control/stream/{{quality}}/" id="stream" style="height:90vh;width:50vw;object-fit:scale-down;">
+-->
+							<img src="http://192.168.1.150/mjpg/video.mjpg" style="height:90vh;width:50vw;object-fit:scale-down;">
+					</td>
+					<td style="" align="center">
+						<textarea style="visibility:hidden;position:absolute;bottom:0;right:0;" id="textBox" rows="1" cols="24"></textarea><br>
+						<textarea id="responseBox" rows="3" cols="20"></textarea><br>
+						<br><br><br><br>
+						Set Maximum Speed
+						<div class="slidecontainer">
+							<input type="range" min="0" max="1" step="0.05" value="0.25" class="slider" id="speedSlider">
+						</div>
+						<br>
+						<br>
+						<div id="proportionSlider" class="slidecontainer">
+							Proportion of Maximum Speed
+							<input type="range" min="0" max="1" step="0.01" value="1" class="slider" id="controlSlider">
+						</div>
+					</td>
+					<td style="width:25vh;">
+						<table style="height:100%; width:100%;" border="1px">
+							<tr style="height:25%">
+								<td style="width:100%;">
+									<a id="startButton" href="/control/startrecord/">
+										Start Rec
+									</a>
+								</td>
+							</tr>
+							<tr style="height:25%">
+								<td style="width:100%;">
+									<a id="stopButton" href="/control/stoprecord/">
+										Stop Rec
+									</a>
+								</td>
+							</tr>
+							<tr style="height:25%">
+								<td style="width:100%;">
+									<a href="/review">
+										View Rec's
+									</a>
+								</td>
+							</tr>
+							<tr style="height:25%">
+								<td style="width:100%;">
+									<a href="/">
+										Options
+									</a>
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+
+<!--
+	<tr style="height:40%;">
+		<td style="width:100%;">
+			<table style="height:100%; width:100%;" border="1px">
+				<tr>
+					<td style="width: 30%;" align="center">
+
+					</td>
+					<td style="width: 40%;" align="center">
+					</td>
+					<td style="width: 30%;">
+						<table style="height:100%; width:100%;" border="1px">
+							<tr style="height:50%">
+								<td style="width:100%;">
+									Control Input and Motor Movement Visualuzation
+								</td>
+							</tr>
+							<tr style="height:50%">
+								<td style="width:100">
+									Console Log Messages
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+	-->
+</table>
+</body>
+
+<script src="{%  static 'jquery.min.js' %}"></script>
+<script>
+
+/*
+$(document).ready(function(){
+	$("#textBox").change(function(){
+		var text = $("#textBox").val();
+		$.post("/control/my-ajax-test/", {csrfmiddlewaretoken: '{{ csrf_token }}', text: text}, function(result){
+			$("#responseBox").html(result);
+		});
+	});
+});
+*/
+
+var speedSlider = document.getElementById("speedSlider");
+
+	setTimeout(postStatus, 1000);
+	requestAnimationFrame(updateStatus);
+
+	function postStatus(){
+		var text = document.getElementById('textBox').value;
+		//document.getElementById('responseBox').value=text;
+		$.ajax({
+			type: "POST",
+			url: '/control/command/',
+			data: { csrfmiddlewaretoken: '{{ csrf_token }}', text: text },
+			success: function callback(response){
+					   // do whatever with the response
+					   document.getElementById('responseBox').value=response;
+					   setTimeout(postStatus, 1);
+					},
+			//async:false
+		});
+	}
+
+	var stopButton = document.getElementById('stopButton');
+	stopButton.onclick = function(){
+		$.ajax({
+			type: "GET",
+			url: '/control/stoprecord/',
+			success: function callback(response){
+					},
+			//async:false
+		});
+		return false;
+	}
+
+	var startButton = document.getElementById('startButton');
+	startButton.onclick = function(){
+		$.ajax({
+			type: "GET",
+			url: '/control/startrecord/',
+			success: function callback(response){
+					},
+			//async:false
+		});
+		return false;
+	}
+
+
+
+
+var haveEvents = 'ongamepadconnected' in window;
+var controllers = {};
+
+var kUp = 0, kDown = 0, kLeft = 0, kRight = 0;
+var kPanLeft = 0, kPanRight = 0, kTiltUp = 0, kTiltDown = 0, kZoomIn = 0, kZoomOut = 0;
+
+var panNum = 58;
+var tiltNum = -255;
+
+///when using keyboard, how close to full speed (1-255) should motors run?
+var kMotorScale = 255;
+var kPTZScale = 255;
+
+function connecthandler(e) {
+  addgamepad(e.gamepad);
+  console.log("gamepad connected");
+}
+
+function addgamepad(gamepad) {
+  controllers[gamepad.index] = gamepad;
+  requestAnimationFrame(updateStatus);
+}
+
+function disconnecthandler(e) {
+  removegamepad(e.gamepad);
+  console.log("gamepad removed");
+}
+
+function removegamepad(gamepad) {
+
+  //var d = document.getElementById("controller" + gamepad.index);
+  //document.body.removeChild(d);
+
+  delete controllers[gamepad.index];
+  //document.getElementById('textBox').value = ""
+}
+
+
+function updateStatus() {
+	if (!haveEvents) {
+		scangamepads();
+	}
+	var scaleSpeed = speedSlider.value;
+	kMotorScale = 255*scaleSpeed;
+	controller = controllers[0];
+	var text = document.getElementById('textBox')
+	if (!controller){
+		panNum = panNum+kPTZScale*(kPanRight-kPanLeft)/255/4;
+		panNum = clamp(panNum, -255, 255);
+		tiltNum = tiltNum+kPTZScale*(kTiltUp-kTiltDown)/255/2;
+		tiltNum = clamp(tiltNum, -255, 255);
+		text.value = [kMotorScale*clamp(kUp-kDown-kLeft+kRight, -1, 1),
+			kMotorScale*clamp(kUp-kDown+kLeft-kRight, -1, 1),
+			panNum.toFixed(0), tiltNum.toFixed(0),
+			kPTZScale*(kZoomIn-kZoomOut)].join(',');
+		requestAnimationFrame(updateStatus);
+		controlSlider = document.getElementById('controlSlider');
+		controlSlider.value = 1;
+		proportionSlider = document.getElementById('proportionSlider');
+		proportionSlider.style.visibility = 'hidden';
+		return;
+	}
+	var b0 = controller.buttons[0].value;
+	var b1 = controller.buttons[1].value;
+	if (b0&&b1){
+		b0 = 0;
+		b1 = 0;
+	}
+	var ax = Math.round(controller.axes[0].toFixed(6)*255);
+	var ay = Math.round(controller.axes[1].toFixed(6)*255);
+	var az = Math.round(controller.axes[9].toFixed(6)*7);
+	var af = (controller.axes[6].toFixed(6)-1)/-2;
+	controlSlider = document.getElementById('controlSlider');
+	controlSlider.value = af;
+	proportionSlider = document.getElementById('proportionSlider');
+	proportionSlider.style.visibility = 'visible';
+
+	var red = ax/2+127.5; var green = ay/2+127.5; var blue = az/2+127.5;
+	text.style.backgroundColor = "rgb("+red.toString()+", "+green.toString()+", "+blue.toString()+")";
+
+	var brightness = (red*red*0.241)+(green*green*0.691)+(blue*blue*0.068);
+	var threshold = 132*132;
+	if (brightness>threshold){
+		text.style.color = "black";
+	} else {
+		text.style.color = "white";
+	}
+
+	if (kUp||kDown||kLeft||kRight||kPanLeft||kPanRight||kTiltUp||kTiltDown||kZoomIn||kZoomOut){
+		panNum = panNum+kPTZScale*(kPanRight-kPanLeft)/255/4;
+		panNum = clamp(panNum, -255, 255);
+		tiltNum = tiltNum+kPTZScale*(kTiltUp-kTiltDown)/255/2;
+		tiltNum = clamp(tiltNum, -255, 255);
+		text.value = [kMotorScale*clamp(kUp-kDown-kLeft+kRight, -1, 1),
+			kMotorScale*clamp(kUp-kDown+kLeft-kRight, -1, 1),
+			panNum.toFixed(0), tiltNum.toFixed(0),
+			kPTZScale*(kZoomIn-kZoomOut)].join(',');
+	} else {
+		if(Math.abs(ax)>10){
+			panNum = panNum+(b1)*(ax)/255/4;
+			panNum = clamp(panNum, -255, 255);
+		}
+		if(Math.abs(ay)>10){
+			tiltNum = tiltNum-(b1)*(ay)/255/2;
+			tiltNum = clamp(tiltNum, -255, 255);
+		}
+		text.value = [scaleSpeed*af*b0*clamp(-ay+ax, -255, 255),
+			scaleSpeed*af*b0*clamp(-ay-ax, -255, 255),
+			panNum.toFixed(2), tiltNum.toFixed(2),
+			kPTZScale*((az==-7)-(az==1))].join(',');
+	}
+
+	requestAnimationFrame(updateStatus);
+}
+
+function clamp(val, min, max){
+	return val > max ? max : val < min ? min : val;
+}
+
+function scangamepads() {
+  var gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : []);
+  for (var i = 0; i < gamepads.length; i++) {
+    if (gamepads[i]) {
+      if (gamepads[i].index in controllers) {
+        controllers[gamepads[i].index] = gamepads[i];
+      } else {
+        addgamepad(gamepads[i]);
+      }
+    }
+  }
+}
+
+function parseKeyboard(key, state){
+	switch (key) {
+	case "ArrowUp":
+		kUp = state;
+		break;
+	case "ArrowDown":
+		kDown = state;
+		break;
+	case "ArrowLeft":
+		kLeft = state;
+		break;
+	case "ArrowRight":
+		kRight = state;
+		break;
+	case "w":
+		kTiltUp = state;
+		break;
+	case "s":
+		kTiltDown = state;
+		break;
+	case "a":
+		kPanLeft = state;
+		break;
+	case "d":
+		kPanRight = state;
+		break;
+	case "W":
+		kTiltUp = state;
+		break;
+	case "S":
+		kTiltDown = state;
+		break;
+	case "A":
+		kPanLeft = state;
+		break;
+	case "D":
+		kPanRight = state;
+		break;
+	case "=":
+		kZoomIn = state;
+		break;
+	case "-":
+		kZoomOut = state;
+		break;
+	case "+":
+		kZoomIn = state;
+		break;
+	case "_":
+		kZoomOut = state;
+		break;
+	}
+}
+
+window.addEventListener("gamepadconnected", connecthandler);
+window.addEventListener("gamepaddisconnected", disconnecthandler);
+window.addEventListener("keydown", function(event){
+	if (event.defaultPrevented){
+		return;
+	}
+	parseKeyboard(event.key,1);
+	//updateStatus();
+	//requestAnimationFrame(updateStatus);
+	event.preventDefault();
+}, true);
+window.addEventListener("keyup", function(event){
+	parseKeyboard(event.key,0);
+	//updateStatus();
+	//requestAnimationFrame(updateStatus);
+}, true);
+
+if (!haveEvents) {
+  setInterval(scangamepads, 500);
+}
+
+</script>
