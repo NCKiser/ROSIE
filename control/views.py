@@ -10,6 +10,7 @@ import serial, serial.tools.list_ports
 from pyfirmata import ArduinoMega, util
 from time import sleep
 from threading import Timer
+import re
 import RPi.GPIO as GPIO
 
 count = 0
