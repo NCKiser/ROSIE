@@ -25,9 +25,17 @@ measWaitTime = 0
 
 ser=serial.Serial()
 batteryVoltage = ""
-roboclaw = []
+roboclaw = Roboclaw("/dev/ttyS0", 38400)
+
+def connectMotorSerial():
+    global roboclaw
+    
+    motor_baudrate=38400
+    roboclaw.Open()
+        
 
 def connectSerial():
+    connectMotorSerial()
     global ser
     global batteryVoltage
     try:
@@ -42,12 +50,7 @@ count = 0
 print("Connecting to Serial")
 connectSerial()
 
-def connectMotorSerial():
-    global roboclaw
-    roboclaw = Roboclaw("/dev/ttyS0", 38400)
-    motor_baudrate=38400
-    roboclaw.Open()
-        
+
 #roboclaw init
 MCaddr1 = 0x80
 MCaddr2 = 0x81
