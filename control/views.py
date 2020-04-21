@@ -25,6 +25,7 @@ measWaitTime = 0
 
 ser=serial.Serial()
 batteryVoltage = ""
+roboclaw = []
 
 def connectSerial():
     global ser
@@ -42,6 +43,7 @@ print("Connecting to Serial")
 connectSerial()
 
 def connectMotorSerial():
+    global roboclaw
     roboclaw = Roboclaw("/dev/ttyS0", 38400)
     motor_baudrate=38400
     roboclaw.Open()
