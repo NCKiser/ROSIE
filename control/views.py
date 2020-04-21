@@ -280,7 +280,8 @@ def command(request):
     count = count + 1
     text = request.POST['text']
     nums = [float(s) for s in re.findall(r"[+-]?\d+(?:\.\d+)?", text)]
-
+    rightwheelswrite(100*nums[1])
+    leftwheelswrite(100*nums[0])
     setPanAngle(nums[2])
     setTiltAngle(nums[3])
 
