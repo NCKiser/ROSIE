@@ -47,8 +47,8 @@ def connectMotorSerial():
     roboclaw.Open()
         
 #roboclaw init
-MC.addr1 = 0x80
-MC.addr2 = 0x81
+MCaddr1 = 0x80
+MCaddr2 = 0x81
 
 class Lidar_Lite():
     def __init__(self, address):
@@ -220,20 +220,20 @@ def stopmotors():
 
 def leftwheelswrite(speed):
     if speed >= 0:
-        roboclaw.ForwardM2(MC.addr1,speed)
-        roboclaw.ForwardM2(MC.addr2,speed)
+        roboclaw.ForwardM2(MCaddr1,speed)
+        roboclaw.ForwardM2(MCaddr2,speed)
     else:
-        roboclaw.BackwardM2(MC.addr1,abs(speed))
-        roboclaw.BackwardM2(MC.addr2,abs(speed))
+        roboclaw.BackwardM2(MCaddr1,abs(speed))
+        roboclaw.BackwardM2(MCaddr2,abs(speed))
     return
 
 def rightwheelswrite(speed):
     if speed >= 0:
-        roboclaw.ForwardM1(MC.addr1,speed)
-        roboclaw.ForwardM1(MC.addr2,speed)
+        roboclaw.ForwardM1(MCaddr1,speed)
+        roboclaw.ForwardM1(MCaddr2,speed)
     else:
-        roboclaw.BackwardM1(MC.addr1,abs(speed))
-        roboclaw.BackwardM1(MC.addr2,abs(speed))
+        roboclaw.BackwardM1(MCaddr1,abs(speed))
+        roboclaw.BackwardM1(MCaddr2,abs(speed))
     return
 
 def setPanAngle(angle):
