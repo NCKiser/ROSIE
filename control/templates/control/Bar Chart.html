@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<!-- saved from url=(0063)https://www.chartjs.org/samples/latest/charts/bar/vertical.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<title>Bar Chart</title>
+	<!-- <script async="" src="./Bar Chart_files/analytics.js.download"></script> -->
+    <script src="./Bar Chart_files/Chart.min.js"></script>
+    <script src="./Bar Chart_files/chartjs-plugin-datalabels.js"></script> 
+	<style>
+	canvas {
+		-moz-user-select: none;
+		-webkit-user-select: none;
+		-ms-user-select: none;
+	}
+	</style>
+<style>/* Chart.js */
+@keyframes chartjs-render-animation{from{opacity:.99}to{opacity:1}}.chartjs-render-monitor{animation:chartjs-render-animation 1ms}.chartjs-size-monitor,.chartjs-size-monitor-expand,.chartjs-size-monitor-shrink{position:absolute;direction:ltr;left:0;top:0;right:0;bottom:0;overflow:hidden;pointer-events:none;visibility:hidden;z-index:-1}.chartjs-size-monitor-expand>div{position:absolute;width:1000000px;height:1000000px;left:0;top:0}.chartjs-size-monitor-shrink>div{position:absolute;width:200%;height:200%;left:0;top:0}</style></head>
+
+<body>
+	<div id="container" style="width: 30%;">
+		<canvas id="lidarCanvas" style="display: block; width: 100%; height: 30vh"></canvas>
+        <canvas id="batteryCanvas" style="display: block; width: 100%; height: 30vh"></canvas>
+	</div>
+	<button id="randomizeData">Randomize Data</button>
+	<script>
+       
+
+		Chart.defaults.global.elements.line.fill = false;
+        Chart.defaults.global.plugins.datalabels.anchor = 'start';
+        Chart.defaults.global.plugins.datalabels.align = 'end';
+        
+		var color = Chart.helpers.color;
+		var barChartData = {
+			labels: ['Sensor 1', 'Sensor 2', 'Sensor 3', 'Sensor 4', 'Sensor 5'],
+			datasets: [{
+				label: 'Lidar Sensors',
+				backgroundColor: "#A0D0FF",
+				data: [0,0,0,0,0]
+			}]
+		};
+        
+        var DATA_COUNT = 30;
+		var labels = [];
+        
+        batts = new Array(DATA_COUNT).fill(0);
+
+		for (var i = 0; i < DATA_COUNT; ++i) {
+			labels.push('' + i);
+		}
+
+		
+			var ctx = document.getElementById('lidarCanvas').getContext('2d');
+			window.myBar = new Chart(ctx, {
+				type: 'bar',
+				data: barChartData,
+				options: {
+					responsive: true,
+					plugins: {
+				        datalabels: {
+				            color: 'black',
+				            font: { weight: 'bold' },
+				            formatter: Math.round,
+                            display: function(context) { return context.dataset.data[context.dataIndex] > 0}
+                        }
+                    },
+                    legend: { display: false },
+					title: {
+						display: true,
+						text: 'Lidar Distance (cm)',
+                        fontColor: 'black',
+					},
+                    scales: {
+                        yAxes: [{
+                            type: 'linear',
+                            ticks: {
+                                min: 0,
+                                max: 400,
+                                fontColor: 'black'
+                            },
+                            display: true,
+                        }],
+                        xAxes: [{
+                            ticks: { fontColor: 'black' },
+                            display: true,
+                        }]
+                    }
+				}
+			});
+            var bat = document.getElementById('batteryCanvas').getContext('2d');
+            var battChart = new Chart(bat, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        backgroundColor: 'black',
+                        borderColor: 'black',
+                        data: batts,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    plugins: {
+                        datalabels: {
+                            font: { weight: 'bold' },
+                            display: function(context) {
+                                return context.dataIndex == batts.length;
+                                //will never be true
+                            },
+                            clamp: true
+                        }
+                    },
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: 'Battery Log (Volts)',
+                        fontColor: 'black',
+                    },
+                    scales: {
+                        yAxes: [{
+                            type: 'linear',
+                            ticks: {
+                                min: 0,
+                                max: 30,
+                                fontColor: 'black'
+                            },
+                            display: true,
+                        }],
+                        xAxes: [{
+                            ticks: { fontColor: 'black' },
+                            display: false,
+                        }]
+                    }
+                }
+            });
+		
+
+		document.getElementById('randomizeData').addEventListener('click', function() {
+			barChartData.datasets[0].data = [500*Math.random(),500*Math.random(),
+                                             500*Math.random(),500*Math.random(),
+                                             500*Math.random()];
+
+			window.myBar.update();
+            
+			battChart.data.labels.push(battChart.data.labels.length);
+			battChart.data.datasets[0].data.push(18+5*Math.random());
+			battChart.data.labels.shift();
+			battChart.data.datasets[0].data.shift();
+			battChart.update();
+		});
+		
+
+
+	</script>
+
+
+
+    </body></html>

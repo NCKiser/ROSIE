@@ -4,104 +4,256 @@ from django.urls import reverse
 
 from django.views.decorators import gzip
 
+#import roboclaw
+from roboclaw_3 import Roboclaw
+from time import sleep
+
 #import cv2
 import threading, time
-import serial, serial.tools.list_ports
-from pyfirmata import ArduinoMega, util
+#import serial, serial.tools.list_ports
+#from pyfirmata import ArduinoMega, util
 from time import sleep
 from threading import Timer
 import re
 import RPi.GPIO as GPIO
+import smbus
+from smbus import SMBus
+from PCA9685 import PWM
+import serial
+
+measWaitTime = 0
+
+ser=serial.Serial()
+batteryVoltage = ""
+
+def connectSerial():
+    global ser
+    global batteryVoltage
+    try:
+        ser=serial.Serial("/dev/ttyACM0",9600) #change ACM number as found from ls /dev/tty/ACM*
+        ser.baudrate=9600
+    except:
+        ser.close()
+        batteryVoltage = -1
 
 count = 0
 
-portList = [port.device for port in serial.tools.list_ports.comports()]
-print("port "+portList[0])
+print("Connecting to Serial")
+connectSerial()
+
+def connectMotorSerial():
+    roboclaw = Roboclaw("/dev/ttyS0", 38400)
+    motor_baudrate=38400
+    roboclaw.Open()
+        
+#roboclaw init
+MC.addr1 = 0x80
+MC.addr2 = 0x81
+
+class Lidar_Lite():
+    def __init__(self, address):
+        self.address = address
+        self.distWriteReg = 0x00
+        self.statReadReg = 0x11
+        self.distWriteVal = 0x04
+        self.distReadReg1 = 0x8f
+        self.distReadReg2 = 0x10
+        self.velWriteReg = 0x04
+        self.velWriteVal = 0x08
+        self.velReadReg = 0x09
+        self.quickTermReg = 0xE5
+        self.quickTermVal = 0x08
+
+    def connect(self, bus):
+        try:
+            self.bus = smbus.SMBus(bus)
+            time.sleep(0.5)
+            self.bus.write_byte_data(self.address, self.quickTermReg, self.quickTermVal);
+            return 0
+        except:
+            return -1
+
+    def writeAndWait(self, register, value):
+        self.bus.write_byte_data(self.address, register, value);
+
+    def readAndWait(self, register):
+        res = self.bus.read_byte_data(self.address, register)
+    #time.sleep(0.005)
+        return res
+
+    #removed line time.sleep(0.02) before return
+    def readDistAndWait(self, register):
+        return (self.readAndWait(register)|self.readAndWait(register+1)<<8)
+
+    def getDistance(self):
+        self.writeAndWait(self.distWriteReg, self.distWriteVal)
+        dist = self.readDistAndWait(self.distReadReg2)
+        return dist
+
+lidar5 = Lidar_Lite(0x62)
+connected5 = lidar5.connect(6)
+lidar4 = Lidar_Lite(0x62)
+connected4 = lidar4.connect(5)
+lidar3 = Lidar_Lite(0x62)
+connected3 = lidar3.connect(4)
+lidar2 = Lidar_Lite(0x62)
+connected2 = lidar2.connect(3)
+lidar1 = Lidar_Lite(0x62)
+connected1 = lidar1.connect(1)
+
+meas = [0,0,0,0,0,0]
+
+
+def getMeasurements():
+    while True:
+        try:
+            ser.flushInput()
+            batteryVoltage = ser.readline()
+            batteryVoltage = ser.readline()
+            batteryVoltage = float(re.findall('\d*\.?\d+', str(batteryVoltage, 'ascii'))[0])
+        except:
+            ser.close()
+            batteryVoltage = -1
+            connectSerial()
+        try:
+            meas[0] = lidar1.getDistance()
+        except:
+            meas[0] = -1
+        try:
+            meas[1] = lidar2.getDistance()
+        except:
+            meas[1] = -1
+        try:
+            meas[2] = lidar3.getDistance()
+        except:
+            meas[2] = -1
+        try:
+            meas[3] = lidar4.getDistance()
+        except:
+            meas[3] = -1
+        try:
+            meas[4] = lidar5.getDistance()
+        except:
+            meas[4] = -1
+
+        meas[5] = batteryVoltage*100
+        time.sleep(measWaitTime)
+
+def enablePWM():
+    print("Enabling PWM")
+    GPIO.output(PWM_OEpin, 1)
+
+
+def disablePWM():
+    print("Disabling PWM")
+    GPIO.output(PWM_OEpin, 0)
+
+def zoomIn():
+    GPIO.output(zoomOutPin, 0)
+    GPIO.output(zoomInPin, 1)
+
+def zoomOut():
+    GPIO.output(zoomInPin, 0)
+    GPIO.output(zoomOutPin, 1)
+
+def zoomStop():
+    GPIO.output(zoomInPin, 0)
+    GPIO.output(zoomOutPin, 0)
+
+
+
+motorToDutyRatio = 4
+motorToDutyOffset = 4
+leftFront = 4
+rightFront = 5
+leftBack = 6
+rightBack = 7
+
+tiltUpperLimit = 95
+tiltLowerLimit= -15
+tiltToDutyRatio = 8.1
+tiltToDutyOffset = 5.6
+tiltRange = tiltUpperLimit - tiltLowerLimit
+tiltPin = 1
+
+panUpperLimit = 360
+panLowerLimit= -360
+panToDutyRatio = 1.29
+panToDutyOffset = 7.05
+panRange = panUpperLimit - panLowerLimit
+panPin = 0
+
+flirToDutyRatio = 4
+flirToDutyOffset = 4
+flirColor= 3
+flirZoom= 2
+
+GPIO.setmode(GPIO.BCM)
+PWM_OEpin = 4
+GPIO.setup(PWM_OEpin, GPIO.OUT)
+
+zoomInPin = 11
+zoomOutPin = 9
+GPIO.setup(zoomInPin, GPIO.OUT)
+GPIO.setup(zoomOutPin, GPIO.OUT)
+GPIO.output(zoomInPin, 0)
+GPIO.output(zoomOutPin, 0)
+
+pwm_frequency = 50
+pwm_i2c_address = 0x40
+pwm = PWM(SMBus(1), pwm_i2c_address)
+pwm.setFreq(pwm_frequency)
+
+print("Starting Lidar and Battery")
+measThread = threading.Thread(target=getMeasurements)
+measThread.daemon = True
+measThread.start()
 
 
 
 def stopmotors():
-    global activeStream
-    print('stopping motors')
+    print('Stopping Motors')
     leftwheelswrite(0)
     rightwheelswrite(0)
-    activeStream = False
 
-
-board = ArduinoMega(portList[0])
-print("connected to arduino")
-board.digital[13].write(1)
-tiltServo = board.get_pin('d:9:s')
-# 120+-60
-tiltServo.write(180)
-panServo = board.get_pin('d:11:s')
-# 84+-80
-panServo.write(68)
-frontLeftForward = board.get_pin('d:22:o')
-frontLeftBackward = board.get_pin('d:23:o')
-frontLeftPWM = board.get_pin('d:2:p')
-frontRightForward = board.get_pin('d:24:o')
-frontRightBackward = board.get_pin('d:25:o')
-frontRightPWM = board.get_pin('d:3:p')
-rearLeftForward = board.get_pin('d:26:o')
-rearLeftBackward = board.get_pin('d:27:o')
-rearLeftPWM = board.get_pin('d:4:p')
-rearRightForward = board.get_pin('d:28:o')
-rearRightBackward = board.get_pin('d:29:o')
-rearRightPWM = board.get_pin('d:5:p')
-stopMotorTimer = threading.Timer(0.1, stopmotors, [])
-stopMotorTimer.start()
+    return
 
 def leftwheelswrite(speed):
-    mag = abs(speed)
-    if (mag>0):
-        sign = speed/mag
+    if speed >= 0:
+        roboclaw.ForwardM2(MC.addr1,speed)
+        roboclaw.ForwardM2(MC.addr2,speed)
     else:
-        sign = 0
-    if (sign>0):
-        frontLeftBackward.write(0)
-        frontLeftForward.write(1)
-        rearLeftBackward.write(0)
-        rearLeftForward.write(1)
-    elif (sign==0):
-        frontLeftBackward.write(0)
-        frontLeftForward.write(0)
-        rearLeftBackward.write(0)
-        rearLeftForward.write(0)
-    else:
-        frontLeftForward.write(0)
-        frontLeftBackward.write(1)
-        rearLeftForward.write(0)
-        rearLeftBackward.write(1)
-    frontLeftPWM.write(mag)
-    rearLeftPWM.write(mag)
-
+        roboclaw.BackwardM2(MC.addr1,abs(speed))
+        roboclaw.BackwardM2(MC.addr2,abs(speed))
+    return
 
 def rightwheelswrite(speed):
-    mag = abs(speed)
-    if (mag>0):
-        sign = speed/mag
+    if speed >= 0:
+        roboclaw.ForwardM1(MC.addr1,speed)
+        roboclaw.ForwardM1(MC.addr2,speed)
     else:
-        sign = 0
-    if (sign>0):
-        frontRightBackward.write(0)
-        frontRightForward.write(1)
-        rearRightBackward.write(0)
-        rearRightForward.write(1)
-    elif (sign==0):
-        frontRightBackward.write(0)
-        frontRightForward.write(0)
-        rearRightBackward.write(0)
-        rearRightForward.write(0)
-    else:
-        frontRightForward.write(0)
-        frontRightBackward.write(1)
-        rearRightForward.write(0)
-        rearRightBackward.write(1)
-    frontRightPWM.write(mag)
-    rearRightPWM.write(mag)
+        roboclaw.BackwardM1(MC.addr1,abs(speed))
+        roboclaw.BackwardM1(MC.addr2,abs(speed))
+    return
+
+def setPanAngle(angle):
+    global panToDutyRatio
+    global panToDutyOffset
+    pwm.setDuty(panPin, panToDutyRatio / 180 * -angle + panToDutyOffset)
+
+def setTiltAngle(angle):
+    global tiltToDutyRatio
+    global tiltToDutyOffset
+    pwm.setDuty(tiltPin, tiltToDutyRatio / 180 * angle + tiltToDutyOffset)
+
+def setFlirRange(pin, value):
+    global flirToDutyRatio
+    global flirToDutyOffset
+    pwm.setDuty(pin, flirToDutyRatio / 180 * value + flirToDutyOffset)
 
 
+stopMotorTimer = threading.Timer(0.1, stopmotors, [])
+stopMotorTimer.start()
 
 def stoprecord(request):
     print('Stopping Rec')
@@ -111,45 +263,45 @@ def startrecord(request):
     print('Starting Rec')
     return HttpResponse('started')
 
+
+stopMotorTimer = threading.Timer(0.1, stopmotors, [])
+stopMotorTimer.start()
+
 def command(request):
+    enablePWM()
     global stopMotorTimer
     stopMotorTimer.cancel()
     global count
     count = count + 1
-    #Get the variable text
     text = request.POST['text']
-  #  print(text)
     nums = [float(s) for s in re.findall(r"[+-]?\d+(?:\.\d+)?", text)]
-  #  print(nums)
-    panAngle = nums[2]/-255*70+84
-  #  print('pan: '+str(panAngle))
-    panServo.write(panAngle)
 
-    tiltAngle = nums[3]/-255*60+120
-  #  print('tilt: '+str(tiltAngle))
-    tiltServo.write(tiltAngle)
+    setPanAngle(nums[2])
+    setTiltAngle(nums[3])
 
-    leftSpeed = nums[0]/255
-    leftwheelswrite(leftSpeed)
-    
-    rightSpeed = nums[1]/255
-    rightwheelswrite(rightSpeed)
-    
+    if (nums[4]>0):
+        zoomIn()
+    elif (nums[4]<0):
+        zoomOut()
+    else:
+        zoomStop()
+
+    print(nums)
 
     stopMotorTimer = threading.Timer(1, stopmotors, [])
     stopMotorTimer.start()
-
-    response = str(count)+ '\nLeft: '+str(round(leftSpeed, 2))+ '\nRight: ' +str(round(rightSpeed, 2))
-    #Send the response
+    response = str(count)+'\n'+str(meas)
+    print(response)
     return HttpResponse(response)
 
 
 def index(request):
     #global activeStream
     #activeStream = False
-    return render(request, 'control/index.html', {'quality': 30})
+    return render(request, 'control/index.html')
 
-def indexQ(request, quality):
+def random(request):
     #global activeStream
     #activeStream = False
-    return render(request, 'control/index.html', {'quality': quality})
+    return render(request, 'control/random.html')
+

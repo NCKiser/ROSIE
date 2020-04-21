@@ -2,85 +2,64 @@
 <link rel="shortcut icon" href="{%  static 'favicon/favicon.ico' %}">
 
 <head>
-<title> Webserver Control Page </title>
+<title> ROSIE Drive & Control </title>
+	<link rel="stylesheet" type="text/css" href="{%  static 'style.css' %}">
 </head>
 <body>
-<table style="height:100%; width:100%; position:absolute; top:0; bottom:0; left:0; right:0;" border="1px">
+<table style="height:100%; width:100%; position:absolute; top:0; bottom:0; left:0; right:0;" border="0px">
+	<tr style="height:100%;">
+		<td style="width:100%" align="center">
+			<div style="height:100%; width:100%">
+				<img src="" width="100%" height="100%">
+			</div>
+		</td>
+		<td style="" align="center">
+			<table style="height:100%; width:100%;" border="0px">
 				<tr style="height:100%;">
-					<td style="width:75vw;" align="center">
-<!--						<img src="/control/stream/{{quality}}/" id="stream" style="height:90vh;width:50vw;object-fit:scale-down;">
--->
-							<img src="http://192.168.1.150/mjpg/video.mjpg" style="height:90vh;width:50vw;object-fit:scale-down;">
-					</td>
-					<td style="" align="center">
-						<textarea style="visibility:hidden;position:absolute;bottom:0;right:0;" id="textBox" rows="1" cols="24"></textarea><br>
-						<textarea id="responseBox" rows="3" cols="20"></textarea><br>
-						<br><br><br><br>
+					<td style="width:100%;padding-top:20px;" valign="top" name="listview">
+						<textarea style="visibility:hidden;position:absolute;bottom:0;right:0;" id="textBox" rows="1" cols="24"></textarea>
+						<textarea id="responseBox" rows="3" cols="20" style="visibility:hidden;position:absolute;bottom:0;right:0;" ></textarea>
 						Set Maximum Speed
 						<div class="slidecontainer">
-							<input type="range" min="0" max="1" step="0.05" value="0.25" class="slider" id="speedSlider">
+							<input type="range" min="0" max="1" step="0.01" value="0.25" class="slider" id="speedSlider">
 						</div>
-						<br>
-						<br>
-						<div id="proportionSlider" class="slidecontainer">
-							Proportion of Maximum Speed
-							<input type="range" min="0" max="1" step="0.01" value="1" class="slider" id="controlSlider">
+						Thermal Zoom
+						<div class="slidecontainer">
+							<input type="range" min="0" max="1" step="0.5" value="0" class="slider" id="zoomSlider">
+						</div>
+						Thermal Color Palette
+						<div class="slidecontainer">
+							<input type="range" min="0" max="1" step="0.5" value="0" class="slider" id="colorSlider">
+						</div>
+						<div class="chartContainer" style="width:100%;height:60vh;border:0px;">
+							<canvas id="lidarCanvas" style="display: block; width: 100%; height: 30vh"></canvas>
+        					<canvas id="batteryCanvas" style="display: block; width: 100%; height: 30vh"></canvas>
 						</div>
 					</td>
-					<td style="width:25vh;">
-						<table style="height:100%; width:100%;" border="1px">
-							<tr style="height:25%">
-								<td style="width:100%;">
+				</tr>
+				<tr style="height:15vh;">
+					<td>
+						<table style="height:100%; width:60vh;" border="0px">
+							<tr>
+								<td style="width:15vh;">
 									<a id="startButton" href="/control/startrecord/">
 										Start Rec
 									</a>
 								</td>
-							</tr>
-							<tr style="height:25%">
-								<td style="width:100%;">
+								<td style="width:15vh;">
 									<a id="stopButton" href="/control/stoprecord/">
 										Stop Rec
 									</a>
 								</td>
-							</tr>
-							<tr style="height:25%">
-								<td style="width:100%;">
-									<a href="/review">
-										View Rec's
-									</a>
-								</td>
-							</tr>
-							<tr style="height:25%">
-								<td style="width:100%;">
+								<td style="width:15vh;">
 									<a href="/">
 										Options
 									</a>
 								</td>
-							</tr>
-						</table>
-					</td>
-				</tr>
-
-<!--
-	<tr style="height:40%;">
-		<td style="width:100%;">
-			<table style="height:100%; width:100%;" border="1px">
-				<tr>
-					<td style="width: 30%;" align="center">
-
-					</td>
-					<td style="width: 40%;" align="center">
-					</td>
-					<td style="width: 30%;">
-						<table style="height:100%; width:100%;" border="1px">
-							<tr style="height:50%">
-								<td style="width:100%;">
-									Control Input and Motor Movement Visualuzation
-								</td>
-							</tr>
-							<tr style="height:50%">
-								<td style="width:100">
-									Console Log Messages
+								<td style="width:15vh;">
+									<a href="/review">
+										View Rec's
+									</a>
 								</td>
 							</tr>
 						</table>
@@ -89,11 +68,12 @@
 			</table>
 		</td>
 	</tr>
-	-->
 </table>
 </body>
 
 <script src="{%  static 'jquery.min.js' %}"></script>
+<script src="{%  static 'Chart.min.js' %}"></script>
+<script src="{%  static 'chartjs-plugin-datalabels.js' %}"></script>
 <script>
 
 /*
@@ -107,25 +87,155 @@ $(document).ready(function(){
 });
 */
 
+Chart.defaults.global.elements.line.fill = false;
+Chart.defaults.global.plugins.datalabels.anchor = 'start';
+Chart.defaults.global.plugins.datalabels.align = 'end';
+
 var speedSlider = document.getElementById("speedSlider");
+var zoomSlider = document.getElementById("zoomSlider");
+var colorSlider = document.getElementById("colorSlider");
+
+var nums = [0,0,0,0,0,0]
+
+var barChartData = {
+	labels: ['Sensor 1', 'Sensor 2', 'Sensor 3', 'Sensor 4', 'Sensor 5'],
+	datasets: [{
+		label: 'Lidar Sensors',
+		backgroundColor: "#4080FF",
+		data: [0,0,0,0,0]
+	}]
+};
+
+var DATA_COUNT = 64;
+var labels = [];
+
+batts = new Array(DATA_COUNT).fill(0);
+
+for (var i = 0; i < DATA_COUNT; ++i) {
+	labels.push('' + i);
+}
 
 	setTimeout(postStatus, 1000);
 	requestAnimationFrame(updateStatus);
 
 	function postStatus(){
 		var text = document.getElementById('textBox').value;
-		//document.getElementById('responseBox').value=text;
 		$.ajax({
 			type: "POST",
 			url: '/control/command/',
 			data: { csrfmiddlewaretoken: '{{ csrf_token }}', text: text },
 			success: function callback(response){
-					   // do whatever with the response
-					   document.getElementById('responseBox').value=response;
-					   setTimeout(postStatus, 1);
-					},
+				var res = response.split("\n");
+				var meas = res[1].substring(1, res[1].length-2);
+  				nums = meas.split(",").map(Number);
+  				nums[5] = nums[5]/100;
+  				drawGraphs();
+				setTimeout(postStatus, 1);
+			},
 			//async:false
 		});
+	}
+
+	var ctx = document.getElementById('lidarCanvas').getContext('2d');
+	window.myBar = new Chart(ctx, {
+		type: 'bar',
+		data: barChartData,
+		options: {
+			responsive: true,
+			plugins: {
+				datalabels: {
+					color: 'white',
+					font: { weight: 'bold' },
+					formatter: Math.round,
+					display: function(context) { return context.dataset.data[context.dataIndex] > 0}
+				}
+			},
+			legend: { display: false },
+			title: {
+				display: true,
+				text: 'Lidar Distance (cm)',
+				fontColor: 'white',
+			},
+			scales: {
+				yAxes: [{
+					type: 'linear',
+					ticks: {
+						min: 0,
+						max: 400,
+						fontColor: 'white'
+					},
+					display: true,
+				}],
+				xAxes: [{
+					ticks: { fontColor: 'white' },
+					display: true,
+				}]
+			},
+			animation: false,
+			tooltips: {enabled: false},
+    		hover: {mode: null},
+		}
+	});
+	var bat = document.getElementById('batteryCanvas').getContext('2d');
+	var battChart = new Chart(bat, {
+		type: 'line',
+		data: {
+			labels: labels,
+			datasets: [{
+				backgroundColor: '#40E040',
+				borderColor: '#40E040',
+				data: batts,
+				pointRadius: 0
+			}]
+		},
+		options: {
+			plugins: {
+				datalabels: {
+					font: { weight: 'bold' },
+					display: function(context) {
+						return context.dataIndex == batts.length;
+						//will never be true
+					},
+					clamp: true
+				}
+			},
+			legend: { display: false },
+			title: {
+				display: true,
+				text: 'Battery Log (Volts)',
+				fontColor: 'white',
+			},
+			scales: {
+				yAxes: [{
+					type: 'linear',
+					ticks: {
+						min: 0,
+						max: 30,
+						fontColor: 'white'
+					},
+					display: true,
+					gridLines: {
+					 	color: "gray"
+					},
+				}],
+				xAxes: [{
+					ticks: { fontColor: 'white' },
+					display: false,
+				}]
+			},
+			tooltips: {enabled: false},
+    		hover: {mode: null},
+		}
+	});
+
+	function drawGraphs() {
+		barChartData.datasets[0].data = [nums[0],nums[1],nums[2],nums[3],nums[4]];
+		window.myBar.update();
+		battChart.data.labels.push(battChart.data.labels.length);
+		battChart.data.datasets[0].data.push(nums[5]);
+		battChart.data.labels.shift();
+		battChart.data.datasets[0].data.shift();
+		battChart.update();
 	}
 
 	var stopButton = document.getElementById('stopButton');
@@ -154,19 +264,19 @@ var speedSlider = document.getElementById("speedSlider");
 
 
 
-
 var haveEvents = 'ongamepadconnected' in window;
 var controllers = {};
 
 var kUp = 0, kDown = 0, kLeft = 0, kRight = 0;
 var kPanLeft = 0, kPanRight = 0, kTiltUp = 0, kTiltDown = 0, kZoomIn = 0, kZoomOut = 0;
 
-var panNum = 58;
-var tiltNum = -255;
+var panNum = 0;
+var tiltNum = 0;
 
 ///when using keyboard, how close to full speed (1-255) should motors run?
-var kMotorScale = 255;
-var kPTZScale = 255;
+var kPTZScale = 128;
+var panScale = 8
+var tiltScale = 12
 
 function connecthandler(e) {
   addgamepad(e.gamepad);
@@ -197,24 +307,20 @@ function updateStatus() {
 	if (!haveEvents) {
 		scangamepads();
 	}
+	document.getElementById('responseBox').value=nums;
 	var scaleSpeed = speedSlider.value;
-	kMotorScale = 255*scaleSpeed;
 	controller = controllers[0];
 	var text = document.getElementById('textBox')
 	if (!controller){
-		panNum = panNum+kPTZScale*(kPanRight-kPanLeft)/255/4;
-		panNum = clamp(panNum, -255, 255);
-		tiltNum = tiltNum+kPTZScale*(kTiltUp-kTiltDown)/255/2;
-		tiltNum = clamp(tiltNum, -255, 255);
-		text.value = [kMotorScale*clamp(kUp-kDown-kLeft+kRight, -1, 1),
-			kMotorScale*clamp(kUp-kDown+kLeft-kRight, -1, 1),
-			panNum.toFixed(0), tiltNum.toFixed(0),
-			kPTZScale*(kZoomIn-kZoomOut)].join(',');
+		panNum = panNum+kPTZScale*(kPanRight-kPanLeft)/255/panScale;
+		panNum = clamp(panNum, panLowerLimit, panUpperLimit);
+		tiltNum = tiltNum+kPTZScale*(kTiltUp-kTiltDown)/255/tiltScale;
+		tiltNum = clamp(tiltNum, tiltLowerLimit, tiltUpperLimit);
+		text.value = [scaleSpeed*clamp(kUp-kDown-kLeft+kRight, -1, 1),
+			scaleSpeed*clamp(kUp-kDown+kLeft-kRight, -1, 1),
+			panNum.toFixed(2), tiltNum.toFixed(2),
+			kZoomIn-kZoomOut, zoomSlider.value, colorSlider.value].join(',');
 		requestAnimationFrame(updateStatus);
-		controlSlider = document.getElementById('controlSlider');
-		controlSlider.value = 1;
-		proportionSlider = document.getElementById('proportionSlider');
-		proportionSlider.style.visibility = 'hidden';
 		return;
 	}
 	var b0 = controller.buttons[0].value;
@@ -227,10 +333,8 @@ function updateStatus() {
 	var ay = Math.round(controller.axes[1].toFixed(6)*255);
 	var az = Math.round(controller.axes[9].toFixed(6)*7);
 	var af = (controller.axes[6].toFixed(6)-1)/-2;
-	controlSlider = document.getElementById('controlSlider');
-	controlSlider.value = af;
-	proportionSlider = document.getElementById('proportionSlider');
-	proportionSlider.style.visibility = 'visible';
+	speedSlider = document.getElementById('speedSlider');
+	speedSlider.value = af;
 
 	var red = ax/2+127.5; var green = ay/2+127.5; var blue = az/2+127.5;
 	text.style.backgroundColor = "rgb("+red.toString()+", "+green.toString()+", "+blue.toString()+")";
@@ -243,28 +347,33 @@ function updateStatus() {
 		text.style.color = "white";
 	}
 
+	var panLowerLimit = -360
+	var panUpperLimit = 360
+	var tiltLowerLimit = -15
+	var tiltUpperLimit = 95
+
 	if (kUp||kDown||kLeft||kRight||kPanLeft||kPanRight||kTiltUp||kTiltDown||kZoomIn||kZoomOut){
-		panNum = panNum+kPTZScale*(kPanRight-kPanLeft)/255/4;
-		panNum = clamp(panNum, -255, 255);
-		tiltNum = tiltNum+kPTZScale*(kTiltUp-kTiltDown)/255/2;
-		tiltNum = clamp(tiltNum, -255, 255);
-		text.value = [kMotorScale*clamp(kUp-kDown-kLeft+kRight, -1, 1),
-			kMotorScale*clamp(kUp-kDown+kLeft-kRight, -1, 1),
-			panNum.toFixed(0), tiltNum.toFixed(0),
-			kPTZScale*(kZoomIn-kZoomOut)].join(',');
+		panNum = panNum+kPTZScale*(kPanRight-kPanLeft)/255/panScale;
+		panNum = clamp(panNum, panLowerLimit, panUpperLimit);
+		tiltNum = tiltNum+kPTZScale*(kTiltUp-kTiltDown)/255/tiltScale;
+		tiltNum = clamp(tiltNum, tiltLowerLimit, tiltUpperLimit);
+		text.value = [scaleSpeed*clamp(kUp-kDown-kLeft+kRight, -1, 1),
+			scaleSpeed*clamp(kUp-kDown+kLeft-kRight, -1, 1),
+			panNum.toFixed(2), tiltNum.toFixed(2),
+			kZoomIn-kZoomOut, zoomSlider.value, colorSlider.value].join(',');
 	} else {
 		if(Math.abs(ax)>10){
-			panNum = panNum+(b1)*(ax)/255/4;
-			panNum = clamp(panNum, -255, 255);
+			panNum = panNum+(b1)*(ax)/255/panScale;
+			panNum = clamp(panNum, panLowerLimit, panUpperLimit);
 		}
 		if(Math.abs(ay)>10){
-			tiltNum = tiltNum-(b1)*(ay)/255/2;
-			tiltNum = clamp(tiltNum, -255, 255);
+			tiltNum = tiltNum-(b1)*(ay)/255/tiltScale;
+			tiltNum = clamp(tiltNum, tiltLowerLimit, tiltUpperLimit);
 		}
 		text.value = [scaleSpeed*af*b0*clamp(-ay+ax, -255, 255),
 			scaleSpeed*af*b0*clamp(-ay-ax, -255, 255),
 			panNum.toFixed(2), tiltNum.toFixed(2),
-			kPTZScale*((az==-7)-(az==1))].join(',');
+			kPTZScale*((az==-7)-(az==1)), zoomSlider.value, colorSlider.value].join(',');
 	}
 
 	requestAnimationFrame(updateStatus);
