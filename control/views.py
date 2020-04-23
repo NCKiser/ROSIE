@@ -114,14 +114,14 @@ meas = [0,0,0,0,0,0]
 def getMeasurements():
     while True:
         try:
-            ser.flushInput()
-            batteryVoltage = ser.readline()
-            batteryVoltage = ser.readline()
-            batteryVoltage = float(re.findall('\d*\.?\d+', str(batteryVoltage, 'ascii'))[0])
+            #ser.flushInput()
+            #batteryVoltage = ser.readline()
+            #batteryVoltage = ser.readline()
+            #batteryVoltage = float(re.findall('\d*\.?\d+', str(batteryVoltage, 'ascii'))[0])
         except:
-            ser.close()
+            #ser.close()
             batteryVoltage = -1
-            connectSerial()
+            #connectSerial()
         try:
             meas[0] = lidar1.getDistance()
         except:
