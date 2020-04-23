@@ -112,17 +112,20 @@ meas = [0,0,0,0,0,0]
 
 
 def getMeasurements():
+    global batteryVoltage
+    global rightSpeed
+    global leftSpeed
     while True:
         try:
-            #ser.flushInput()
-            #batteryVoltage = ser.readline()
-            #batteryVoltage = ser.readline()
-            #batteryVoltage = float(re.findall('\d*\.?\d+', str(batteryVoltage, 'ascii'))[0])
+            ser.flushInput()
+            batteryVoltage = ser.readline()
+            batteryVoltage = ser.readline()
+            batteryVoltage = float(re.findall('\d*\.?\d+', str(batteryVoltage, 'ascii'))[0])
             batteryVoltage = 0
         except:
-            #ser.close()
+            ser.close()
             batteryVoltage = -1
-            #connectSerial()
+            connectSerial()
         try:
             meas[0] = lidar1.getDistance()
         except:
@@ -143,6 +146,14 @@ def getMeasurements():
             meas[4] = lidar5.getDistance()
         except:
             meas[4] = -1
+
+        try:
+            #print("rightSpeed: ", rightSpeed)
+            #print("leftSpeed: ", leftSpeed)
+            rightwheelswrite(rightSpeed)
+            leftwheelswrite(leftSpeed)
+        except:
+            connectMotorSerial()
 
         meas[5] = batteryVoltage*100
         time.sleep(measWaitTime)
@@ -242,7 +253,7 @@ measThread.start()
 print("Starting Motor Control")
 motorThread = threading.Thread(target=controlMotors)
 motorThread.daemon = True
-motorThread.start()
+#motorThread.start()
 
 
 def stopmotors():
