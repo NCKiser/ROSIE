@@ -118,6 +118,7 @@ def getMeasurements():
             #batteryVoltage = ser.readline()
             #batteryVoltage = ser.readline()
             #batteryVoltage = float(re.findall('\d*\.?\d+', str(batteryVoltage, 'ascii'))[0])
+            batteryVoltage = 0
         except:
             #ser.close()
             batteryVoltage = -1
