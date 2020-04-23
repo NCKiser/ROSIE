@@ -22,6 +22,7 @@ from PCA9685 import PWM
 import serial
 
 measWaitTime = 0
+motorWaitTime = 0
 
 ser=serial.Serial()
 batteryVoltage = ""
@@ -31,6 +32,7 @@ def connectMotorSerial():
     global roboclaw
     
     motor_baudrate=38400
+    print("connecting motors")
     roboclaw.Open()
         
 
@@ -143,14 +145,36 @@ def getMeasurements():
 
         meas[5] = batteryVoltage*100
         time.sleep(measWaitTime)
+        
+leftSpeed = 0
+rightSpeed = 0
+
+def controlMotors():
+    global rightSpeed
+    global leftSpeed
+    while True:
+        try:
+            #print("rightSpeed: ", rightSpeed)
+            #print("leftSpeed: ", leftSpeed)
+            rightwheelswrite(rightSpeed)
+            leftwheelswrite(leftSpeed)
+        except:
+            connectMotorSerial()
+        time.sleep(motorWaitTime)
+        
+PWMenabled = False
 
 def enablePWM():
+    global PWMenabled
     print("Enabling PWM")
+    PWMenabled = True
     GPIO.output(PWM_OEpin, 1)
 
 
 def disablePWM():
+    global PWMenabled
     print("Disabling PWM")
+    PWMenabled = False
     GPIO.output(PWM_OEpin, 0)
 
 def zoomIn():
@@ -214,31 +238,37 @@ measThread = threading.Thread(target=getMeasurements)
 measThread.daemon = True
 measThread.start()
 
+print("Starting Motor Control")
+motorThread = threading.Thread(target=controlMotors)
+motorThread.daemon = True
+motorThread.start()
 
 
 def stopmotors():
+    
     print('Stopping Motors')
     leftwheelswrite(0)
     rightwheelswrite(0)
-
+    
+    disablePWM()
     return
 
 def leftwheelswrite(speed):
     if speed >= 0:
         roboclaw.ForwardM2(MCaddr1,speed)
-        roboclaw.ForwardM2(MCaddr2,speed)
+        #roboclaw.ForwardM2(MCaddr2,speed)
     else:
         roboclaw.BackwardM2(MCaddr1,abs(speed))
-        roboclaw.BackwardM2(MCaddr2,abs(speed))
+        #roboclaw.BackwardM2(MCaddr2,abs(speed))
     return
 
 def rightwheelswrite(speed):
     if speed >= 0:
         roboclaw.ForwardM1(MCaddr1,speed)
-        roboclaw.ForwardM1(MCaddr2,speed)
+        #roboclaw.ForwardM1(MCaddr2,speed)
     else:
         roboclaw.BackwardM1(MCaddr1,abs(speed))
-        roboclaw.BackwardM1(MCaddr2,abs(speed))
+        #roboclaw.BackwardM1(MCaddr2,abs(speed))
     return
 
 def setPanAngle(angle):
@@ -273,13 +303,20 @@ stopMotorTimer = threading.Timer(0.1, stopmotors, [])
 stopMotorTimer.start()
 
 def command(request):
-    enablePWM()
+    if not(PWMenabled):
+        enablePWM()
     global stopMotorTimer
     stopMotorTimer.cancel()
     global count
+    global leftSpeed
+    global rightSpeed
     count = count + 1
     text = request.POST['text']
     nums = [float(s) for s in re.findall(r"[+-]?\d+(?:\.\d+)?", text)]
+    
+    rightSpeed = int(100*nums[1])
+    leftSpeed = int(100*nums[0])
+    print(leftSpeed, rightSpeed)
 
     setPanAngle(nums[2])
     setTiltAngle(nums[3])
